@@ -15,8 +15,9 @@ AI-powered content generation
 Drag and drop interface
 Topic categorization
 Zoom and pan controls
-How to Use
-Basic Input
+
+## How to Use
+Basic Input:
 Type any question or topic in the input box and press Enter or click Send. The AI will generate relevant content displayed as connected nodes.
 
 ## Create Command
