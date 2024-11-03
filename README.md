@@ -5,6 +5,10 @@
 
 This is an AI-powered interactive mind mapping tool that allows users to create, explore, and organize ideas visually in its futuristic Ui. The project combines natural language processing with an intuitive visual interface.
 
+Demo: https://youtu.be/ebszsDeae6s?si=EQnX7F0oKdmh-yDA
+
+Try it here: https://websim.ai/c/OMBKJIIqINQrnxStp
+
 ## Key Features 
 Interactive node-based visualization
 AI-powered content generation
