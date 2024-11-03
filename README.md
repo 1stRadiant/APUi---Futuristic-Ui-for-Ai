@@ -1,7 +1,7 @@
 # APUi-Futuristic-Ui-for-Ai
 
 
-##Project Overview 
+## Project Overview 
 
 This is an AI-powered interactive mind mapping tool that allows users to create, explore, and organize ideas visually in its futuristic Ui. The project combines natural language processing with an intuitive visual interface.
 
