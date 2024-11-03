@@ -1,0 +1,1786 @@
+<html><head><base href="." />
+<title>AI Assistant with Node Sections</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        margin: 0;
+        padding: 0; /* Remove padding */
+        background: #1a1a2e;
+        height: 100vh;
+        overflow: hidden; /* Prevent scrolling */
+        display: flex;
+        flex-direction: column;
+      }
+
+      #particles-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      .chat-container {
+        margin-left: 0; /* Remove left margin since sidebar is hidden by default */
+        width: 100vw; /* Full viewport width */
+        height: 100vh; /* Full viewport height */
+        padding: 0 0.5rem;
+        margin: 0; /* Remove margin */
+        background: rgba(22, 36, 71, 0.7); /* Make slightly transparent */
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        z-index: 1;
+      }
+
+      .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 250px;
+        background: #162447;
+        border-right: 2px solid #4169e1;
+        padding: 1rem;
+        overflow-y: auto;
+        box-shadow: 2px 0 15px rgba(65, 105, 225, 0.3);
+        z-index: 100;
+        transform: translateX(-100%); /* Changed from -250px to -100% to ensure complete hiding */
+        transition: transform 0.3s ease;
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .sidebar-title {
+        color: #4169e1;
+        font-family: 'Orbitron', system-ui, sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid rgba(65, 105, 225, 0.3);
+        text-shadow: 0 0 10px rgba(65, 105, 225, 0.5);
+      }
+
+      .topic-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .topic-item {
+        background: rgba(31, 64, 104, 0.3);
+        margin: 0.5rem 0;
+        padding: 0.8rem 1rem;
+        border: 1px solid rgba(65, 105, 225, 0.3);
+        border-radius: 8px;
+        color: #e6e6ff;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-family: 'Rajdhani', system-ui, sans-serif;
+        letter-spacing: 0.5px;
+        box-shadow: 0 0 10px rgba(65, 105, 225, 0.1);
+      }
+
+      .topic-item:hover {
+        background: rgba(65, 105, 225, 0.2);
+        border-color: #4169e1;
+        box-shadow: 
+          0 0 15px rgba(65, 105, 225, 0.3),
+          0 0 5px rgba(65, 105, 225, 0.2),
+          inset 0 0 10px rgba(65, 105, 225, 0.1);
+        transform: translateX(5px);
+      }
+
+      .sidebar-toggle {
+        position: fixed;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        background: linear-gradient(135deg, #162447 0%, #1f4068 100%);
+        border: 2px solid #4169e1;
+        color: #4169e1;
+        font-size: 1.5rem;
+        width: 30px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 101;
+        border-radius: 0 8px 8px 0;
+        box-shadow: 
+          0 0 15px rgba(65, 105, 225, 0.3),
+          inset 0 0 10px rgba(65, 105, 225, 0.1);
+        transition: all 0.3s ease;
+        text-shadow: 0 0 5px rgba(65, 105, 225, 0.5);
+      }
+
+      .sidebar.open + .sidebar-toggle {
+        left: 250px;
+      }
+
+      .sidebar-toggle:hover {
+        background: linear-gradient(135deg, #1f4068 0%, #162447 100%);
+        box-shadow: 
+          0 0 20px rgba(65, 105, 225, 0.5),
+          inset 0 0 15px rgba(65, 105, 225, 0.2);
+        color: #fff;
+      }
+
+      .input-area {
+        display: flex;
+        gap: 1rem;
+        margin: 0 0 0.5rem 0; /* Only bottom margin */
+      }
+
+      #user-input {
+        flex: 1;
+        padding: 1rem;
+        background: #1f4068;
+        color: #fff;
+        border: 2px solid #1f4068;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.2s;
+      }
+
+      #user-input:focus {
+        border-color: #2196F3;
+        outline: none;
+      }
+
+      #user-input::placeholder {
+        color: #8f9bba;
+      }
+
+      button {
+        background: #4169e1;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background 0.2s, box-shadow 0.2s;
+        box-shadow: 0 0 10px rgba(65, 105, 225, 0.5);
+      }
+
+      button:hover {
+        background: #2848c8;
+        box-shadow: 0 0 15px rgba(65, 105, 225, 0.7);
+      }
+
+      .node-container {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        transform-origin: center center;
+        transition: transform 0.3s ease;
+        touch-action: none;
+        background: transparent;
+        margin: 0.5rem; /* Minimal margin */
+        height: calc(100vh - 60px); /* Subtract only input area height */
+        width: calc(100% - 1rem);
+        cursor: grab;
+      }
+
+      .node-container:active {
+        cursor: grabbing;
+      }
+
+      .node {
+        position: absolute;
+        background: rgba(31, 64, 104, 0.85);
+        border: 2px solid #4169e1;
+        opacity: 0; /* Start invisible for animation */
+        transform: scale(0.8); /* Start smaller */
+        transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+        box-shadow: 
+          0 0 15px rgba(65, 105, 225, 0.5),
+          0 0 5px rgba(65, 105, 225, 0.3),
+          inset 0 0 10px rgba(65, 105, 225, 0.2),
+          0 0 2px #4169e1,
+          0 0 4px #4169e1,
+          0 0 6px #4169e1;
+        backdrop-filter: blur(8px);
+        font-family: 'Orbitron', 'Rajdhani', system-ui, sans-serif;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        text-shadow: 0 0 10px rgba(65, 105, 225, 0.8);
+        min-width: 30px;
+        min-height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-size: 0.8em;
+        padding: 0.5rem;
+        cursor: pointer;
+        transition: left 0.5s ease-out, top 0.5s ease-out;
+        z-index: 2;
+        will-change: transform, left, top;
+        touch-action: none;
+        user-select: none;
+        color: #aaaaaa; /* Light grey color */
+      }
+
+      .node.dragging {
+        will-change: transform, left, top;
+        transition: none !important;
+      }
+
+      .node.center {
+        background: rgba(65, 105, 225, 0.85);
+        border: 2px solid #87CEEB;
+        box-shadow: 
+          0 0 20px rgba(135, 206, 235, 0.8),
+          0 0 10px rgba(135, 206, 235, 0.6),
+          inset 0 0 15px rgba(255, 255, 255, 0.3),
+          0 0 6px #87CEEB,
+          0 0 12px #87CEEB,
+          0 0 18px #87CEEB;
+        color: #cccccc; /* Slightly lighter grey for center nodes */
+      }
+
+      .node:hover {
+        box-shadow: 
+          0 0 25px rgba(65, 105, 225, 0.8),
+          0 0 15px rgba(65, 105, 225, 0.6),
+          0 0 5px rgba(65, 105, 225, 0.4),
+          inset 0 0 15px rgba(65, 105, 225, 0.4),
+          0 0 4px #4169e1,
+          0 0 8px #4169e1,
+          0 0 12px #4169e1;
+      }
+
+      .node.center:hover {
+        box-shadow: 
+          0 0 25px rgba(135, 206, 235, 0.8),
+          0 0 15px rgba(135, 206, 235, 0.6),
+          0 0 5px rgba(135, 206, 235, 0.4),
+          inset 0 0 15px rgba(135, 206, 235, 0.4),
+          0 0 4px #87CEEB,
+          0 0 8px #87CEEB,
+          0 0 12px #87CEEB;
+      }
+
+      .node.visible {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      .node:not(.visible):not(.center) {
+        pointer-events: none;
+      }
+
+      .node.center {
+        opacity: 1;
+        transform: scale(1);
+      }
+      
+      .node.center .close-btn {
+        opacity: 1;
+        transform: scale(1);
+        min-width: 40px;
+        min-height: 35px;
+        background: #4169e1;
+        font-size: 1em;
+        z-index: 3;
+        box-shadow: 
+          0 0 20px rgba(65, 105, 225, 0.8),
+          0 0 10px rgba(65, 105, 225, 0.6),
+          inset 0 0 15px rgba(255, 255, 255, 0.3),
+          0 0 6px #87CEEB,
+          0 0 12px #87CEEB,
+          0 0 18px #87CEEB;
+      }
+
+      .connector {
+        display: none;
+      }
+
+      .zoom-controls {
+        position: absolute;
+        bottom: 1rem;
+        right: 1rem;
+        display: flex;
+        gap: 0.5rem;
+        z-index: 100;
+      }
+
+      .zoom-controls button {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        padding: 0;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        align-items: center;
+        justify-content: center;
+        z-index: 1000; 
+      }
+
+      .modal-content {
+        background: #1f4068;
+        color: #fff;
+        padding: 2rem;
+        border-radius: 12px;
+        width: 80%;
+        max-width: 600px;
+      }
+
+      .modal textarea {
+        width: 100%;
+        min-height: 200px;
+        margin: 1rem 0;
+        padding: 0.5rem;
+        background: #162447;
+        color: #fff;
+        border: 1px solid #4169e1;
+      }
+
+      .modal-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+      }
+
+      @keyframes pulse {
+        0% { transform: scale(1); box-shadow: 0 0 15px #4169e1; }
+        70% { transform: scale(1.1); box-shadow: 0 0 25px #4caf50; }
+        100% { transform: scale(1); box-shadow: 0 0 15px #4169e1; }
+      }
+
+      @keyframes flash {
+        0% { border-color: #4169e1; }
+        50% { border-color: #4caf50; }
+        100% { border-color: #4169e1; }
+      }
+
+      .node.updated {
+        animation: pulse 0.5s ease-in-out, flash 1s ease-in-out;
+      }
+
+      .loader {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1000;
+      }
+
+      .loader svg {
+        width: 50px;
+        height: 50px;
+        animation: rotate 2s linear infinite;
+      }
+
+      @keyframes rotate {
+        100% { transform: rotate(360deg); }
+      }
+
+      .loader circle {
+        fill: none;
+        stroke: #4169e1;
+        stroke-width: 4;
+        stroke-dasharray: 150, 200;
+        stroke-dashoffset: -10;
+        animation: dash 1.5s ease-in-out infinite;
+      }
+
+      @keyframes dash {
+        0% { stroke-dasharray: 1, 200; stroke-dashoffset: 0; }
+        50% { stroke-dasharray: 89, 200; stroke-dashoffset: -35; }
+        100% { stroke-dasharray: 89, 200; stroke-dashoffset: -124; }
+      }
+
+      .node-container.modal-open {
+        filter: blur(2px);
+        pointer-events: none;
+      }
+
+      .category-section {
+        margin: 1rem 0;
+        padding: 0.5rem;
+        background: rgba(31, 64, 104, 0.3);
+      }
+
+      .category-header {
+        color: #4169e1;
+        margin: 0 0 0.5rem 0;
+        font-size: 1rem;
+        border-bottom: 1px solid rgba(65, 105, 225, 0.3);
+      }
+
+      .guide-button {
+        position: fixed;
+        bottom: 1rem;
+        left: 1rem;
+        background: #4169e1;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        z-index: 100;
+        box-shadow: 0 0 10px rgba(65, 105, 225, 0.5);
+      }
+
+      .guide-button svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .guide-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.8);
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 1rem;
+      }
+
+      .guide-content {
+        background: #1f4068;
+        color: #e6e6ff;
+        padding: 2rem;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 800px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 0 20px rgba(65, 105, 225, 0.5);
+      }
+
+      .guide-section {
+        margin-bottom: 1.5rem;
+      }
+
+      .guide-section h3 {
+        color: #4169e1;
+        border-bottom: 1px solid rgba(65, 105, 225, 0.3);
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+      }
+
+      .guide-close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: none;
+        border: none;
+        color: #e6e6ff;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0.5rem;
+      }
+
+      .docs-button {
+        position: fixed;
+        bottom: 1rem;
+        left: 8rem; /* Position after the guide button */
+        background: #4169e1;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        z-index: 100;
+        box-shadow: 0 0 10px rgba(65, 105, 225, 0.5);
+      }
+
+      .docs-button svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .docs-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.8);
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 1rem;
+      }
+
+      .docs-content {
+        background: #1f4068;
+        color: #e6e6ff;
+        padding: 2rem;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 800px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 0 20px rgba(65, 105, 225, 0.5);
+        position: relative;
+      }
+
+      .docs-section {
+        margin-bottom: 2rem;
+      }
+
+      .docs-section h3 {
+        color: #4169e1;
+        border-bottom: 1px solid rgba(65, 105, 225, 0.3);
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+      }
+
+      .docs-section h4 {
+        color: #87CEEB;
+        margin: 1rem 0 0.5rem;
+      }
+
+      .docs-section ul {
+        list-style-type: disc;
+        padding-left: 1.5rem;
+        margin: 0.5rem 0;
+      }
+
+      .docs-close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: none;
+        border: none;
+        color: #e6e6ff;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0.5rem;
+      }
+    </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <div class="sidebar">
+    <h2 class="sidebar-title">Topics</h2>
+    <ul id="topic-list" class="topic-list">
+    </ul>
+  </div>
+  <div class="sidebar-toggle" onclick="toggleSidebar()">≡</div>
+  <div class="chat-container">
+    <div class="input-area">
+      <input type="text" id="user-input" placeholder="Ask me anything...">
+      <button onclick="handleUserInput()">Send</button>
+    </div>
+    <div id="node-container" class="node-container"></div>
+    <div class="zoom-controls">
+      <button onclick="zoomIn()">+</button>
+      <button onclick="zoomOut()">-</button>
+    </div>
+  </div>
+
+  <div class="loader">
+    <svg viewBox="0 0 50 50">
+      <circle cx="25" cy="25" r="20"></circle>
+    </svg>
+  </div>
+
+  <div id="edit-modal" class="modal">
+    <div class="modal-content">
+      <h3 id="modal-title"></h3>
+      <textarea id="modal-content"></textarea>
+      <div class="modal-buttons">
+        <button onclick="cancelEdit()">Cancel</button>
+        <button onclick="saveEdit()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="guide-button" onclick="showGuide()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M12 16v-4"/>
+      <path d="M12 8h.01"/>
+    </svg>
+    User Guide
+  </button>
+
+  <button class="docs-button" onclick="showDocs()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-6"/>
+      <path d="M12 12l4-4"/>
+      <path d="M16 8h-4V4"/>
+    </svg>
+    Documentation
+  </button>
+
+  <div class="docs-modal" id="docs-modal">
+    <div class="docs-content">
+      <button class="docs-close" onclick="hideDocs()">×</button>
+      <h2>Project Documentation</h2>
+      
+      <div class="docs-section">
+        <h3>Project Overview</h3>
+        <p>This is an AI-powered interactive mind mapping tool that allows users to create, explore, and organize ideas visually. The project combines natural language processing with an intuitive visual interface.</p>
+      </div>
+      
+      <div class="docs-section">
+        <h3>Key Features</h3>
+        <ul>
+          <li>Interactive node-based visualization</li>
+          <li>AI-powered content generation</li>
+          <li>Drag and drop interface</li>
+          <li>Topic categorization</li>
+          <li>Zoom and pan controls</li>
+        </ul>
+      </div>
+      
+      <div class="docs-section">
+        <h3>How to Use</h3>
+        <h4>Basic Input</h4>
+        <p>Type any question or topic in the input box and press Enter or click Send. The AI will generate relevant content displayed as connected nodes.</p>
+        
+        <h4>Create Command</h4>
+        <p>Use the "create:" command to generate comprehensive mind maps. For example:</p>
+        <ul>
+          <li>create: solar system</li>
+          <li>create: web development basics</li>
+          <li>create: machine learning concepts</li>
+        </ul>
+        
+        <h4>Node Interaction</h4>
+        <p>Click and drag nodes to reposition them. Center nodes will move together with their connected child nodes.</p>
+      </div>
+      
+      <div class="docs-section">
+        <h3>Technical Details</h3>
+        <p>The project uses:</p>
+        <ul>
+          <li>Advanced AI language model for content generation</li>
+          <li>HTML5 Canvas for particle effects</li>
+          <li>CSS3 for animations and styling</li>
+          <li>Vanilla JavaScript for interactivity</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="guide-modal" id="guide-modal">
+    <div class="guide-content">
+      <button class="guide-close" onclick="hideGuide()">×</button>
+      <h2>Interactive Mind Map User Guide</h2>
+      
+      <div class="guide-section">
+        <h3>Basic Navigation</h3>
+        <ul>
+          <li>Click and drag nodes to move them</li>
+          <li>Use the zoom buttons (+/-) to adjust the view</li>
+          <li>Click a node to view its details</li>
+        </ul>
+      </div>
+      
+      <div class="guide-section">
+        <h3>Creating Content</h3>
+        <ul>
+          <li>Type in the input box and press Enter or click Send to create a new topic</li>
+          <li>Use "create:" command to generate mind maps (e.g., "create: solar system")</li>
+          <li>Click the center node to show/hide connected ideas</li>
+        </ul>
+      </div>
+      
+      <div class="guide-section">
+        <h3>Organization</h3>
+        <ul>
+          <li>Topics are automatically categorized</li>
+          <li>Use the sidebar (≡) to access all your topics</li>
+          <li>Drag topics from the sidebar to reposition them</li>
+        </ul>
+      </div>
+      
+      <div class="guide-section">
+        <h3>Tips & Shortcuts</h3>
+        <ul>
+          <li>Double-click nodes to edit their content</li>
+          <li>Parent nodes move together with their children</li>
+          <li>Click empty space to collapse all nodes</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+<script>
+let topics = [];
+let nodes = [];
+let activeNodeId = null;
+let activeTopicId = null;
+let currentZoom = 0.8; // Start slightly zoomed out
+let isDragging = false;
+let currentNode = null;
+let offsetX = 0;
+let offsetY = 0;
+
+// Add new state tracking variables
+let isMoving = false;
+const MOVEMENT_THRESHOLD = 5; // pixels
+let sidebarOpen = false;
+
+// Add panning state variables
+let isPanning = false;
+let panStartX = 0;
+let panStartY = 0;
+let currentOffsetX = 0;
+let currentOffsetY = 0;
+
+const categories = new Map();  // Store categories and their regions
+const nodePositions = new Map(); // Track node positions and avoid overlaps
+
+const particlesCanvas = document.getElementById('particles-canvas');
+const ctx = particlesCanvas.getContext('2d');
+let particles = [];
+const particleCount = 50;
+const connectionDistance = 100;
+const particleSpeed = 0.5;
+
+// Particle class
+class Particle {
+  constructor() {
+    this.reset();
+  }
+
+  reset() {
+    this.x = Math.random() * particlesCanvas.width;
+    this.y = Math.random() * particlesCanvas.height;
+    this.vx = (Math.random() - 0.5) * particleSpeed;
+    this.vy = (Math.random() - 0.5) * particleSpeed;
+    this.size = Math.random() * 2 + 1;
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+
+    if (this.x < 0 || this.x > particlesCanvas.width) this.vx *= -1;
+    if (this.y < 0 || this.y > particlesCanvas.height) this.vy *= -1;
+  }
+
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(65, 105, 225, 0.5)';
+    ctx.fill();
+  }
+}
+
+// Initialize particles
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < particleCount; i++) {
+    particles.push(new Particle());
+  }
+}
+
+// Draw connections between particles
+function drawConnections() {
+  ctx.strokeStyle = 'rgba(65, 105, 225, 0.15)';
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i < particles.length; i++) {
+    for (let j = i + 1; j < particles.length; j++) {
+      const dx = particles[i].x - particles[j].x;
+      const dy = particles[i].y - particles[j].y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < connectionDistance) {
+        ctx.beginPath();
+        ctx.moveTo(particles[i].x, particles[i].y);
+        ctx.lineTo(particles[j].x, particles[j].y);
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+// Animation loop
+function animate() {
+  ctx.clearRect(0, 0, particlesCanvas.width, particlesCanvas.height);
+  
+  particles.forEach(particle => {
+    particle.update();
+    particle.draw();
+  });
+  
+  drawConnections();
+  requestAnimationFrame(animate);
+}
+
+// Handle canvas resize
+function resizeCanvas() {
+  particlesCanvas.width = window.innerWidth;
+  particlesCanvas.height = window.innerHeight;
+}
+
+// Initialize everything
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+initParticles();
+animate();
+
+function toggleSidebar() {
+  sidebarOpen = !sidebarOpen;
+  document.querySelector('.sidebar').classList.toggle('open');
+}
+
+function scrollToNode(node) {
+  if (!node) return;
+  
+  const container = document.getElementById('node-container');
+  const containerRect = container.getBoundingClientRect();
+  const nodeRect = node.getBoundingClientRect();
+  
+  const centerX = (containerRect.width / 2) - (nodeRect.width / 2);
+  const centerY = (containerRect.height / 2) - (nodeRect.height / 2);
+  
+  const currentX = parseFloat(node.style.left) || 0;
+  const currentY = parseFloat(node.style.top) || 0;
+  
+  const offsetX = centerX - currentX;
+  const offsetY = centerY - currentY;
+  
+  // Animate all nodes to their new positions
+  document.querySelectorAll('.node').forEach(n => {
+    const x = parseFloat(n.style.left) || 0;
+    const y = parseFloat(n.style.top) || 0;
+    
+    // Add transition temporarily
+    n.style.transition = 'all 0.5s ease-out';
+    n.style.left = (x + offsetX) + 'px';
+    n.style.top = (y + offsetY) + 'px';
+    
+    // Remove transition after animation
+    setTimeout(() => {
+      n.style.transition = '';
+    }, 500);
+  });
+}
+
+function createNode(title, content, x, y) {
+  const node = document.createElement('div');
+  node.className = 'node';
+  node.innerHTML = title;
+  node.style.left = x + 'px';
+  node.style.top = y + 'px';
+  node.style.transform = `scale(${currentZoom})`; // Add initial scale
+  node.dataset.content = content;
+  node.dataset.title = title;
+  node.dataset.id = Date.now() + Math.random();
+  
+  node.onpointerdown = handlePointerDown;
+  node.onpointermove = handlePointerMove;
+  node.onpointerup = handlePointerUp;
+  node.onpointercancel = handlePointerUp;
+
+  if (title === prompt) {
+    const closeBtn = document.createElement('div');
+    closeBtn.className = 'close-btn';
+    closeBtn.innerHTML = '×';
+    closeBtn.onpointerdown = (e) => {
+      e.stopPropagation();
+      deleteTopic(node.dataset.topicId);
+    };
+    node.appendChild(closeBtn);
+  }
+  
+  return node;
+}
+
+function handleTopicDragStart(e, topicId) {
+  e.dataTransfer.setData('text/plain', topicId);
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function addCategory(name, region) {
+  categories.set(name, {
+    name,
+    region: region || generateRegion(), // {x, y, radius}
+    topics: new Set()
+  });
+}
+
+function generateRegion() {
+  const container = document.getElementById('node-container');
+  const rect = container.getBoundingClientRect();
+  return {
+    x: Math.random() * (rect.width * 0.6) + (rect.width * 0.2),
+    y: Math.random() * (rect.height * 0.6) + (rect.height * 0.2),
+    radius: 300
+  };
+}
+
+function deleteTopic(topicId) {
+  const container = document.getElementById('node-container');
+  const nodesToRemove = container.querySelectorAll(`.node[data-topic-id="${topicId}"]`);
+  nodesToRemove.forEach(node => node.remove());
+  
+  topics = topics.filter(topic => topic.id !== topicId);
+  updateSidebar();
+}
+
+async function classifyTopic(prompt) {
+  try {
+    const response = await fetch('/api/ai_completion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: `Classify this topic into a category:
+        "${prompt}"
+        
+        <typescript-interface>
+        interface Response {
+          category: string;
+          confidence: number;
+        }
+        </typescript-interface>`,
+        data: prompt
+      })
+    });
+    const result = await response.json();
+    if (!categories.has(result.category)) {
+      addCategory(result.category);
+    }
+    return result.category;
+  } catch (err) {
+    console.error('Classification error:', err);
+    return 'General';
+  }
+}
+
+async function getCreativeAIResponse(prompt) {
+  try {
+    const response = await fetch('/api/ai_completion', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: `Create a detailed mind map structure for: "${prompt}"
+        Generate multiple related concepts, ideas, or components that form a comprehensive visualization.
+        Each node should contain a relevant aspect of the main topic.
+        
+        <typescript-interface>
+        interface Response {
+          sections: {
+            title: string;
+            content: string;
+          }[];
+        }
+        </typescript-interface>
+        
+        <example>
+        {
+          "sections": [
+            {
+              "title": "Mercury",
+              "content": "Closest planet to the sun, extremely hot surface, smallest planet"
+            },
+            {
+              "title": "Venus",
+              "content": "Second planet, similar size to Earth, thick atmosphere"
+            },
+            {
+              "title": "Earth",
+              "content": "Third planet, supports life, has one moon"
+            }
+          ]
+        }
+        </example>`,
+        data: prompt
+      }),
+    });
+    
+    const result = await response.json();
+    if (!result.sections || result.sections.length === 0) {
+      return {
+        sections: [
+          {
+            title: "Main Concept",
+            content: `Basic information about: ${prompt}`
+          }
+        ]
+      };
+    }
+    return result;
+    
+  } catch (error) {
+    console.error('Error getting creative response:', error);
+    return {
+      sections: [
+        {
+          title: "Main Concept",
+          content: `Basic information about: ${prompt}`
+        }
+      ]
+    };
+  }
+}
+
+async function handleUserInput() {
+  const input = document.getElementById('user-input');
+  const prompt = input.value.trim();
+  
+  if (!prompt) return;
+  
+  const isCreateCommand = prompt.toLowerCase().startsWith('create:');
+  const actualPrompt = isCreateCommand ? prompt.slice(7).trim() : prompt;
+  
+  document.querySelector('.loader').style.display = 'block';
+  
+  try {
+    const category = await classifyTopic(actualPrompt);
+    
+    let response;
+    if (isCreateCommand) {
+      response = await getCreativeAIResponse(actualPrompt);
+    } else {
+      response = await getAIResponse(actualPrompt);
+    }
+    
+    const topicId = Date.now().toString();
+    const container = document.getElementById('node-container');
+
+    const categoryData = categories.get(category);
+    const centerPos = {
+      x: categoryData.region.x + (Math.random() * 100 - 50),
+      y: categoryData.region.y + (Math.random() * 100 - 50)
+    };
+    
+    const centerNode = createNode(actualPrompt, 'Central Topic', centerPos.x, centerPos.y);
+    centerNode.classList.add('center');
+    centerNode.dataset.topicId = topicId;
+    centerNode.dataset.category = category;
+    container.appendChild(centerNode);
+    
+    categoryData.topics.add(topicId);
+    
+    response.sections.forEach((section, index) => {
+      const angle = (2 * Math.PI * index) / response.sections.length;
+      const radius = 200; // Adjust radius as needed
+      
+      const x = centerPos.x + radius * Math.cos(angle);
+      const y = centerPos.y + radius * Math.sin(angle);
+      
+      const node = createNode(section.title, section.content, x, y);
+      node.dataset.topicId = topicId;
+      node.draggable = true;
+      node.ondragstart = (e) => handleTopicDragStart(e, topicId);
+      container.appendChild(node);
+      
+      nodePositions.set(`${x},${y},${Math.max(node.offsetWidth, node.offsetHeight)}`, node);
+    });
+    
+    topics.push({
+      id: topicId,
+      title: actualPrompt,
+      category
+    });
+    
+    updateSidebar();
+    input.value = '';
+    
+    if (isCreateCommand) {
+      toggleTopicVisibility(topicId);
+    }
+    
+  } catch (error) {
+    console.error('Error handling input:', error);
+  } finally {
+    document.querySelector('.loader').style.display = 'none';
+  }
+}
+
+function navigateToTopic(topicId) {
+  const centerNode = document.querySelector(`.node.center[data-topic-id="${topicId}"]`);
+  if (!centerNode) return;
+  
+  scrollToNode(centerNode);
+  toggleTopicVisibility(topicId);
+  
+  if (window.innerWidth <= 768) {
+    toggleSidebar();
+  }
+}
+
+function updateSidebar() {
+  const topicList = document.getElementById('topic-list');
+  topicList.innerHTML = '';
+  
+  categories.forEach((category, name) => {
+    const categoryDiv = document.createElement('div');
+    categoryDiv.className = 'category-section';
+    
+    const header = document.createElement('h3');
+    header.className = 'category-header';
+    header.textContent = name;
+    categoryDiv.appendChild(header);
+    
+    const topicsList = document.createElement('ul');
+    topicsList.className = 'category-topics';
+    
+    category.topics.forEach(topicId => {
+      const topic = topics.find(t => t.id === topicId);
+      if (topic) {
+        const li = document.createElement('li');
+        li.className = 'topic-item';
+        li.textContent = topic.title;
+        li.onclick = () => navigateToTopic(topic.id);
+        li.draggable = true;
+        li.ondragstart = (e) => handleTopicDragStart(e, topic.id);
+        topicsList.appendChild(li);
+      }
+    });
+    
+    categoryDiv.appendChild(topicsList);
+    topicList.appendChild(categoryDiv);
+  });
+}
+
+function isPositionOccupied(x, y, size) {
+  const buffer = 20; // Minimum space between nodes
+  const checkRect = {
+    left: x - size/2 - buffer,
+    right: x + size/2 + buffer,
+    top: y - size/2 - buffer,
+    bottom: y + size/2 + buffer
+  };
+  
+  for (const [pos] of nodePositions) {
+    const [posX, posY, posSize] = pos.split(',').map(Number);
+    const nodeRect = {
+      left: posX - posSize/2,
+      right: posX + posSize/2,
+      top: posY - posSize/2,
+      bottom: posY + posSize/2
+    };
+    
+    if (rectsOverlap(checkRect, nodeRect)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function rectsOverlap(r1, r2) {
+  return !(r1.right < r2.left || r1.left > r2.right ||
+           r1.bottom < r2.top || r1.top > r2.bottom);
+}
+
+function findFreePosition(node, centerX, centerY, radius) {
+  const angleStep = (2 * Math.PI) / 36; // Try 36 positions around circle
+  const nodeRect = node.getBoundingClientRect();
+  const nodeSize = Math.max(nodeRect.width, nodeRect.height);
+  
+  for (let angle = 0; angle < 2 * Math.PI; angle += angleStep) {
+    const x = centerX + radius * Math.cos(angle);
+    const y = centerY + radius * Math.sin(angle);
+    
+    // Check if position is free
+    if (!isPositionOccupied(x, y, nodeSize)) {
+      return {x, y};
+    }
+  }
+  
+  // If no position found, increase radius and try again
+  return findFreePosition(node, centerX, centerY, radius + 50);
+}
+
+function handlePointerDown(e) {
+  try {
+    e.preventDefault(); // Prevent default behaviors
+    startX = e.clientX;
+    startY = e.clientY;
+    
+    isDragging = false;
+    isMoving = false;
+    currentNode = e.target;
+    
+    // Calculate offset relative to the node's position
+    const rect = currentNode.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+    
+    currentNode.style.transition = 'none'; // Remove transitions while dragging
+    
+    // Remove transitions from child nodes if this is a center node
+    if (currentNode.classList.contains('center')) {
+      const container = document.getElementById('node-container');
+      const topicId = currentNode.dataset.topicId;
+      const childNodes = container.querySelectorAll(`.node[data-topic-id="${topicId}"]:not(.center)`);
+      childNodes.forEach(node => {
+        node.style.transition = 'none';
+      });
+    }
+    
+    currentNode.setPointerCapture(e.pointerId);
+    
+  } catch (err) {
+    console.error('Error in pointer down:', err);
+    resetDragState();
+  }
+}
+
+function handlePointerMove(e) {
+  if (!currentNode) return;
+
+  try {
+    const deltaX = Math.abs(e.clientX - startX);
+    const deltaY = Math.abs(e.clientY - startY);
+
+    if (deltaX > MOVEMENT_THRESHOLD || deltaY > MOVEMENT_THRESHOLD) {
+      isMoving = true;
+    }
+
+    if (isMoving) {
+      isDragging = true;
+      e.preventDefault();
+
+      const container = document.getElementById('node-container');
+      const rect = container.getBoundingClientRect();
+
+      // Calculate new position for parent node
+      let newX = (e.clientX - rect.left - offsetX) / currentZoom;
+      let newY = (e.clientY - rect.top - offsetY) / currentZoom;
+
+      // Apply bounds checking
+      const maxX = (rect.width / currentZoom) - currentNode.offsetWidth;
+      const maxY = (rect.height / currentZoom) - currentNode.offsetHeight;
+      
+      newX = Math.max(0, Math.min(newX, maxX));
+      newY = Math.max(0, Math.min(newY, maxY));
+
+      // If this is a center node, move all child nodes together
+      if (currentNode.classList.contains('center')) {
+        const topicId = currentNode.dataset.topicId;
+        const childNodes = container.querySelectorAll(`.node[data-topic-id="${topicId}"]:not(.center)`);
+        
+        // Calculate the movement delta from last position
+        const deltaX = newX - (parseFloat(currentNode.style.left) || 0);
+        const deltaY = newY - (parseFloat(currentNode.style.top) || 0);
+
+        // Move all child nodes by the same delta immediately
+        childNodes.forEach(node => {
+          const currentX = parseFloat(node.style.left) || 0;
+          const currentY = parseFloat(node.style.top) || 0;
+          node.style.left = `${currentX + deltaX}px`;
+          node.style.top = `${currentY + deltaY}px`;
+        });
+      }
+
+      // Update parent node position
+      currentNode.style.left = `${newX}px`;
+      currentNode.style.top = `${newY}px`;
+    }
+  } catch (err) {
+    console.error('Error in pointer move:', err);
+    resetDragState();
+  }
+}
+
+function handlePointerUp(e) {
+  try {
+    if (currentNode) {
+      currentNode.releasePointerCapture(e.pointerId);
+      currentNode.style.transition = ''; // Restore transitions
+      
+      // Restore transitions for child nodes if this was a center node
+      if (currentNode.classList.contains('center')) {
+        const container = document.getElementById('node-container');
+        const topicId = currentNode.dataset.topicId;
+        const childNodes = container.querySelectorAll(`.node[data-topic-id="${topicId}"]:not(.center)`);
+        childNodes.forEach(node => {
+          node.style.transition = '';
+        });
+      }
+      
+      if (!isMoving && !isDragging) {
+        showNodeContent(currentNode);
+      }
+    }
+  } catch (err) {
+    console.error('Error in pointer up:', err);
+  } finally {
+    resetDragState();
+  }
+}
+
+function handleContainerPointerDown(e) {
+  if (e.target === document.getElementById('node-container')) {
+    isPanning = true;
+    panStartX = e.clientX - currentOffsetX;
+    panStartY = e.clientY - currentOffsetY;
+    const container = document.getElementById('node-container');
+    container.style.cursor = 'grabbing';
+    container.setPointerCapture(e.pointerId);
+  }
+}
+
+function handleContainerPointerMove(e) {
+  if (isPanning) {
+    const x = e.clientX - panStartX;
+    const y = e.clientY - panStartY;
+    
+    const nodes = document.querySelectorAll('.node');
+    nodes.forEach(node => {
+      const currentLeft = parseFloat(node.style.left) || 0;
+      const currentTop = parseFloat(node.style.top) || 0;
+      node.style.left = (currentLeft + (x - currentOffsetX)) + 'px';
+      node.style.top = (currentTop + (y - currentOffsetY)) + 'px';
+    });
+    
+    currentOffsetX = x;
+    currentOffsetY = y;
+  }
+}
+
+function handleContainerPointerUp(e) {
+  if (isPanning) {
+    isPanning = false;
+    const container = document.getElementById('node-container');
+    container.style.cursor = 'default';
+    container.releasePointerCapture(e.pointerId);
+  }
+}
+
+function resetDragState() {
+  isDragging = false;
+  isMoving = false;
+  currentNode = null;
+  startX = 0;
+  startY = 0;
+}
+
+function showNodeContent(node) {
+    if (node.classList.contains('center')) {
+        const topicId = node.dataset.topicId;
+        toggleTopicVisibility(topicId);
+        return;
+    }
+    
+    const modal = document.getElementById('edit-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalContent = document.getElementById('modal-content');
+    const nodeContainer = document.getElementById('node-container');
+    
+    activeNodeId = node.dataset.id;
+    modalTitle.textContent = node.dataset.title;
+    modalContent.value = node.dataset.content;
+    
+    nodeContainer.classList.add('modal-open');
+    modal.style.display = 'flex';
+}
+
+function toggleTopicVisibility(topicId) {
+    const allNodes = document.querySelectorAll('.node:not(.center)');
+    
+    allNodes.forEach(node => {
+        node.classList.remove('visible');
+    });
+    
+    if (activeTopicId === topicId) {
+        activeTopicId = null;
+        return;
+    }
+    
+    activeTopicId = topicId;
+    document.querySelectorAll(`.node[data-topic-id="${topicId}"]:not(.center)`).forEach((node, index) => {
+        setTimeout(() => {
+            node.classList.add('visible');
+        }, index * 100);
+    });
+}
+
+document.getElementById('node-container').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+        document.querySelectorAll('.node:not(.center)').forEach(node => {
+            node.classList.remove('visible');
+        });
+        activeTopicId = null;
+    }
+});
+
+async function getAIResponse(prompt, context = '') {
+  try {
+    const response = await fetch('/api/ai_completion', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: `Based on the user input, generate a structured response with labeled sections.
+        Each section should have a title and content. Format as JSON.
+        
+        <typescript-interface>
+        interface Response {
+          sections: {
+            title: string;
+            content: string;
+          }[];
+        }
+        </typescript-interface>
+        
+        <example>
+        {
+          "sections": [
+            {
+              "title": "Main Concept",
+              "content": "Here's an explanation of the main concept..."
+            },
+            {
+              "title": "Code Example",
+              "content": "function example() {\n  console.log('Hello');\n}"
+            }
+          ]
+        }
+        </example>`,
+        data: {
+          userPrompt: prompt,
+          context: context
+        }
+      }),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Error:', error);
+    return {
+      sections: [
+        {
+          title: "Example Response",
+          content: "This is a simulated response since we're in demo mode. Here's what you asked about: " + prompt
+        },
+        {
+          title: "Code Example",
+          content: "function demo() {\n  console.log('Hello from demo!');\n}"
+        }
+      ]
+    };
+  }
+}
+
+async function handleUserInput() {
+  const input = document.getElementById('user-input');
+  const prompt = input.value.trim();
+  
+  if (!prompt) return;
+  
+  const isCreateCommand = prompt.toLowerCase().startsWith('create:');
+  const actualPrompt = isCreateCommand ? prompt.slice(7).trim() : prompt;
+  
+  document.querySelector('.loader').style.display = 'block';
+  
+  try {
+    const category = await classifyTopic(actualPrompt);
+    
+    let response;
+    if (isCreateCommand) {
+      response = await getCreativeAIResponse(actualPrompt);
+    } else {
+      response = await getAIResponse(actualPrompt);
+    }
+    
+    const topicId = Date.now().toString();
+    const container = document.getElementById('node-container');
+
+    const categoryData = categories.get(category);
+    const centerPos = {
+      x: categoryData.region.x + (Math.random() * 100 - 50),
+      y: categoryData.region.y + (Math.random() * 100 - 50)
+    };
+    
+    const centerNode = createNode(actualPrompt, 'Central Topic', centerPos.x, centerPos.y);
+    centerNode.classList.add('center');
+    centerNode.dataset.topicId = topicId;
+    centerNode.dataset.category = category;
+    container.appendChild(centerNode);
+    
+    categoryData.topics.add(topicId);
+    
+    response.sections.forEach((section, index) => {
+      const angle = (2 * Math.PI * index) / response.sections.length;
+      const radius = 200; // Adjust radius as needed
+      
+      const x = centerPos.x + radius * Math.cos(angle);
+      const y = centerPos.y + radius * Math.sin(angle);
+      
+      const node = createNode(section.title, section.content, x, y);
+      node.dataset.topicId = topicId;
+      node.draggable = true;
+      node.ondragstart = (e) => handleTopicDragStart(e, topicId);
+      container.appendChild(node);
+      
+      nodePositions.set(`${x},${y},${Math.max(node.offsetWidth, node.offsetHeight)}`, node);
+    });
+    
+    topics.push({
+      id: topicId,
+      title: actualPrompt,
+      category
+    });
+    
+    updateSidebar();
+    input.value = '';
+    
+    if (isCreateCommand) {
+      toggleTopicVisibility(topicId);
+    }
+    
+  } catch (error) {
+    console.error('Error handling input:', error);
+  } finally {
+    document.querySelector('.loader').style.display = 'none';
+  }
+}
+
+function centerNodeInCanvas(node) {
+  const container = document.getElementById('node-container');
+  const rect = container.getBoundingClientRect();
+  const nodeRect = node.getBoundingClientRect();
+  
+  const x = (rect.width / 2 / currentZoom) - (nodeRect.width / 2);
+  const y = (rect.height / 2 / currentZoom) - (nodeRect.height / 2);
+  
+  node.style.left = x + 'px';
+  node.style.top = y + 'px';
+  
+  return {x, y};
+}
+
+function cancelEdit() {
+  const modal = document.getElementById('edit-modal');
+  const nodeContainer = document.getElementById('node-container');
+  
+  modal.style.display = 'none';
+  nodeContainer.classList.remove('modal-open');
+  activeNodeId = null;
+}
+
+async function saveEdit() {
+  const modal = document.getElementById('edit-modal');
+  const nodeContainer = document.getElementById('node-container');
+  const content = document.getElementById('modal-content').value;
+  
+  const sourceNode = document.querySelector(`.node[data-id="${activeNodeId}"]`);
+  if (sourceNode) {
+    document.querySelector('.loader').style.display = 'block';
+
+    try {
+      const response = await fetch('/api/ai_completion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: `Follow these instructions and generate an appropriate response with a title:
+          "${content}"
+          
+          <typescript-interface>
+          interface Response {
+            title: string;
+            content: string;
+          }
+          </typescript-interface>
+          
+          <example>
+          {
+            "title": "Algorithm Analysis",
+            "content": "Detailed explanation of time complexity..."
+          }
+          </example>`,
+          data: content
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.content) {
+        const topicId = sourceNode.dataset.topicId;
+        const newNode = createNode(result.title, result.content, 
+          parseInt(sourceNode.style.left), 
+          parseInt(sourceNode.style.top));
+        newNode.dataset.topicId = topicId;
+        nodeContainer.appendChild(newNode);
+        
+        if (activeTopicId === topicId) {
+          newNode.classList.add('visible');
+        }
+        
+        newNode.classList.add('updated');
+        setTimeout(() => newNode.classList.remove('updated'), 1000);
+        
+        const centerNode = document.querySelector(`.center[data-topic-id="${topicId}"]`);
+        arrangeChildren(centerNode, 80);
+      }
+      
+    } catch (error) {
+      console.error('Error creating new node:', error);
+    } finally {
+      document.querySelector('.loader').style.display = 'none';
+    }
+  }
+  
+  modal.style.display = 'none';
+  nodeContainer.classList.remove('modal-open');
+  activeNodeId = null;
+}
+
+function arrangeChildren(centerNode, radius) {
+  if (!centerNode) return;
+  
+  const topicId = centerNode.dataset.topicId;
+  const container = document.getElementById('node-container');
+  const children = Array.from(container.querySelectorAll(`.node[data-topic-id="${topicId}"]:not(.center)`));
+  
+  const centerX = parseFloat(centerNode.style.left);
+  const centerY = parseFloat(centerNode.style.top);
+  
+  children.forEach((child, index) => {
+    const angle = (index / children.length) * 2 * Math.PI;
+    const x = centerX + radius * Math.cos(angle);
+    const y = centerY + radius * Math.sin(angle);
+    
+    child.style.left = x + 'px';
+    child.style.top = y + 'px';
+  });
+}
+
+document.getElementById('user-input').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    handleUserInput();
+  }
+});
+
+const container = document.getElementById('node-container');
+container.onpointerdown = handleContainerPointerDown;
+container.onpointermove = handleContainerPointerMove;
+container.onpointerup = handleContainerPointerUp;
+container.onpointercancel = handleContainerPointerUp;
+
+// Replace existing zoom functions with these:
+function zoomIn() {
+  currentZoom = Math.min(currentZoom * 1.2, 3.0);
+  applyZoom();
+}
+
+function zoomOut() {
+  currentZoom = Math.max(currentZoom * 0.8, 0.3);
+  applyZoom();
+}
+
+function applyZoom() {
+  const nodes = document.querySelectorAll('.node');
+  nodes.forEach(node => {
+    // Only apply the scale transform, don't modify positions
+    node.style.transform = `scale(${currentZoom})`;
+  });
+}
+
+// Add drag and drop handling to the container if needed
+const nodeContainer = document.getElementById('node-container');
+
+nodeContainer.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+});
+
+nodeContainer.addEventListener('drop', (e) => {
+  e.preventDefault();
+  const topicId = e.dataTransfer.getData('text/plain');
+  if (!topicId) return;
+  
+  const rect = nodeContainer.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / currentZoom;
+  const y = (e.clientY - rect.top) / currentZoom;
+  
+  const centerNode = document.querySelector(`.node.center[data-topic-id="${topicId}"]`);
+  if (centerNode) {
+    const oldX = parseFloat(centerNode.style.left) || 0;
+    const oldY = parseFloat(centerNode.style.top) || 0;
+    const deltaX = x - oldX;
+    const deltaY = y - oldY;
+    
+    centerNode.style.left = `${x}px`;
+    centerNode.style.top = `${y}px`;
+    
+    const childNodes = nodeContainer.querySelectorAll(`.node[data-topic-id="${topicId}"]:not(.center)`);
+    childNodes.forEach(node => {
+      const currentX = parseFloat(node.style.left) || 0;
+      const currentY = parseFloat(node.style.top) || 0;
+      node.style.left = `${currentX + deltaX}px`;
+      node.style.top = `${currentY + deltaY}px`;
+    });
+  }
+});
+
+function showGuide() {
+  const modal = document.getElementById('guide-modal');
+  modal.style.display = 'flex';
+  document.getElementById('node-container').classList.add('modal-open');
+}
+
+function hideGuide() {
+  const modal = document.getElementById('guide-modal');
+  modal.style.display = 'none';
+  document.getElementById('node-container').classList.remove('modal-open');
+}
+
+// Close guide when clicking outside
+document.getElementById('guide-modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) {
+    hideGuide();
+  }
+});
+
+function showDocs() {
+  const modal = document.getElementById('docs-modal');
+  modal.style.display = 'flex';
+  document.getElementById('node-container').classList.add('modal-open');
+}
+
+function hideDocs() {
+  const modal = document.getElementById('docs-modal');
+  modal.style.display = 'none';
+  document.getElementById('node-container').classList.remove('modal-open');
+}
+
+// Close docs when clicking outside
+document.getElementById('docs-modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) {
+    hideDocs();
+  }
+});
+</script>
+</body>
+</html>
