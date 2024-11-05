@@ -189,6 +189,7 @@
         height: calc(100vh - 60px); /* Subtract only input area height */
         width: calc(100% - 1rem);
         cursor: grab;
+        overflow: hidden; /* Ensure this is set */
       }
 
       .node-container:active {
@@ -214,8 +215,10 @@
         letter-spacing: 0.5px;
         text-transform: uppercase;
         text-shadow: 0 0 10px rgba(65, 105, 225, 0.8);
-        min-width: 30px;
-        min-height: 26px;
+        min-width: 100px; /* Updated */
+        min-height: 30px; /* Updated */
+        max-width: 300px; /* Updated */
+        max-height: 300px; /* Updated */
         display: flex;
         align-items: center;
         justify-content: center;
@@ -229,6 +232,56 @@
         touch-action: none;
         user-select: none;
         color: #aaaaaa; /* Light grey color */
+        transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+        flex-direction: column;
+        overflow: auto;
+        pointer-events: auto;
+      }
+
+      .node:not(.center) {
+        transition: all 0.3s ease;
+        min-width: 100px;
+        min-height: 30px;
+        max-width: 300px;
+        max-height: 300px;
+      }
+
+      .node:not(.center).minimized {
+        max-height: 30px !important;
+        overflow: hidden;
+      }
+
+      .node:not(.center).minimized .node-content {
+        display: none;
+      }
+
+      .node:not(.center).maximized {
+        max-height: 300px;
+        overflow: auto;
+      }
+
+      .node-title {
+        font-size: 0.9em;
+        margin-bottom: 8px;
+        color: #aaaaaa;
+        text-transform: uppercase;
+      }
+
+      .node-content {
+        font-size: 0.85em;
+        color: #aaaaaa;
+      }
+
+      .interactive-node {
+        min-width: 200px;
+        min-height: 200px;
+        background: rgba(31, 64, 104, 0.95);
+      }
+
+      .interactive-node .node-content {
+        flex: 1;
+        overflow: auto;
+        padding: 8px;
       }
 
       .node.dragging {
@@ -754,8 +807,6 @@ let sidebarOpen = false;
 let isPanning = false;
 let panStartX = 0;
 let panStartY = 0;
-let currentOffsetX = 0;
-let currentOffsetY = 0;
 
 const categories = new Map();  // Store categories and their regions
 const nodePositions = new Map(); // Track node positions and avoid overlaps
@@ -851,6 +902,9 @@ resizeCanvas();
 initParticles();
 animate();
 
+let startX = 0;
+let startY = 0;
+
 function toggleSidebar() {
   sidebarOpen = !sidebarOpen;
   document.querySelector('.sidebar').classList.toggle('open');
@@ -891,11 +945,51 @@ function scrollToNode(node) {
 
 function createNode(title, content, x, y) {
   const node = document.createElement('div');
-  node.className = 'node';
-  node.innerHTML = title;
+  node.className = 'node minimized'; // Add minimized class by default
+  
+  // Create title element
+  const titleElement = document.createElement('div');
+  titleElement.className = 'node-title';
+  titleElement.textContent = title;
+  node.appendChild(titleElement);
+  
+  // Create content container
+  const contentContainer = document.createElement('div');
+  contentContainer.className = 'node-content';
+  
+  // Check if content is HTML (starts with < and ends with >)
+  if (typeof content === 'string' && content.trim().startsWith('<') && content.trim().endsWith('>')) {
+    // Create a temporary container
+    const temp = document.createElement('div');
+    temp.innerHTML = content;
+    
+    // Execute any scripts in the content
+    const scripts = temp.getElementsByTagName('script');
+    const scriptContent = [];
+    for (let i = 0; i < scripts.length; i++) {
+      scriptContent.push(scripts[i].innerHTML);
+      scripts[i].parentNode.removeChild(scripts[i]);
+    }
+    
+    // Set the HTML content
+    contentContainer.innerHTML = temp.innerHTML;
+    
+    // Create and execute new script elements
+    scriptContent.forEach(script => {
+      const newScript = document.createElement('script');
+      newScript.textContent = script;
+      contentContainer.appendChild(newScript);
+    });
+    
+    node.classList.add('interactive-node');
+  } else {
+    contentContainer.textContent = content;
+  }
+  
+  node.appendChild(contentContainer);
   node.style.left = x + 'px';
   node.style.top = y + 'px';
-  node.style.transform = `scale(${currentZoom})`; // Add initial scale
+  node.style.transform = `scale(${currentZoom})`;
   node.dataset.content = content;
   node.dataset.title = title;
   node.dataset.id = Date.now() + Math.random();
@@ -904,17 +998,6 @@ function createNode(title, content, x, y) {
   node.onpointermove = handlePointerMove;
   node.onpointerup = handlePointerUp;
   node.onpointercancel = handlePointerUp;
-
-  if (title === prompt) {
-    const closeBtn = document.createElement('div');
-    closeBtn.className = 'close-btn';
-    closeBtn.innerHTML = '×';
-    closeBtn.onpointerdown = (e) => {
-      e.stopPropagation();
-      deleteTopic(node.dataset.topicId);
-    };
-    node.appendChild(closeBtn);
-  }
   
   return node;
 }
@@ -1219,32 +1302,62 @@ function findFreePosition(node, centerX, centerY, radius) {
 }
 
 function handlePointerDown(e) {
+  // Don't initiate drag if clicking interactive elements or script content
+  if (e.target.closest('button, input, select, script') || 
+      e.target.closest('.node-content')?.querySelector('script')) {
+    return;
+  }
+  
+  // Ensure we have a valid event and target
+  if (!e || !e.target) {
+    console.error('Invalid event or target in handlePointerDown');
+    return;
+  }
+
   try {
     e.preventDefault(); // Prevent default behaviors
+    
+    // Initialize starting positions
     startX = e.clientX;
     startY = e.clientY;
-    
+
+    // Reset drag state
     isDragging = false;
     isMoving = false;
-    currentNode = e.target;
+
+    // Get the node element (either the clicked element or its closest parent node)
+    currentNode = e.target.closest('.node');
+
+    // If no valid node was found, exit
+    if (!currentNode) {
+      isPanning = true; // Start panning if there's no node
+      panStartX = e.clientX;
+      panStartY = e.clientY;
+      e.target.style.cursor = 'grabbing';
+      return;
+    }
     
     // Calculate offset relative to the node's position
     const rect = currentNode.getBoundingClientRect();
     offsetX = e.clientX - rect.left;
     offsetY = e.clientY - rect.top;
     
-    currentNode.style.transition = 'none'; // Remove transitions while dragging
+    // Remove transitions while dragging
+    currentNode.style.transition = 'none';
     
     // Remove transitions from child nodes if this is a center node
     if (currentNode.classList.contains('center')) {
       const container = document.getElementById('node-container');
-      const topicId = currentNode.dataset.topicId;
-      const childNodes = container.querySelectorAll(`.node[data-topic-id="${topicId}"]:not(.center)`);
-      childNodes.forEach(node => {
-        node.style.transition = 'none';
-      });
+      if (container) {
+        const topicId = currentNode.dataset.topicId;
+        const childNodes = container.querySelectorAll(`.node[data-topic-id="${topicId}"]:not(.center)`);
+        childNodes.forEach(node => {
+          node.style.transition = 'none';
+        });
+      }
     }
     
+    // Set pointer capture
     currentNode.setPointerCapture(e.pointerId);
     
   } catch (err) {
@@ -1254,6 +1367,26 @@ function handlePointerDown(e) {
 }
 
 function handlePointerMove(e) {
+  if (isPanning) {
+    const dx = e.clientX - panStartX;
+    const dy = e.clientY - panStartY;
+
+    // Move all nodes together
+    const nodes = document.querySelectorAll('.node');
+    nodes.forEach(node => {
+      const currentLeft = parseFloat(node.style.left) || 0;
+      const currentTop = parseFloat(node.style.top) || 0;
+      
+      node.style.left = `${currentLeft + dx}px`;
+      node.style.top = `${currentTop + dy}px`;
+    });
+    
+    // Update pan start position
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    return;
+  }
+  
   if (!currentNode) return;
 
   try {
@@ -1312,6 +1445,12 @@ function handlePointerMove(e) {
 
 function handlePointerUp(e) {
   try {
+    if (isPanning) {
+      isPanning = false;
+      e.target.style.cursor = '';
+      return;
+    }
+    
     if (currentNode) {
       currentNode.releasePointerCapture(e.pointerId);
       currentNode.style.transition = ''; // Restore transitions
@@ -1327,7 +1466,11 @@ function handlePointerUp(e) {
       }
       
       if (!isMoving && !isDragging) {
-        showNodeContent(currentNode);
+        if (currentNode.classList.contains('center')) {
+          showNodeContent(currentNode);
+        } else {
+          toggleNodeSize(currentNode);
+        }
       }
     }
   } catch (err) {
@@ -1337,97 +1480,29 @@ function handlePointerUp(e) {
   }
 }
 
-function handleContainerPointerDown(e) {
-  if (e.target === document.getElementById('node-container')) {
-    isPanning = true;
-    panStartX = e.clientX - currentOffsetX;
-    panStartY = e.clientY - currentOffsetY;
-    const container = document.getElementById('node-container');
-    container.style.cursor = 'grabbing';
-    container.setPointerCapture(e.pointerId);
-  }
-}
-
-function handleContainerPointerMove(e) {
-  if (isPanning) {
-    const x = e.clientX - panStartX;
-    const y = e.clientY - panStartY;
-    
-    const nodes = document.querySelectorAll('.node');
-    nodes.forEach(node => {
-      const currentLeft = parseFloat(node.style.left) || 0;
-      const currentTop = parseFloat(node.style.top) || 0;
-      node.style.left = (currentLeft + (x - currentOffsetX)) + 'px';
-      node.style.top = (currentTop + (y - currentOffsetY)) + 'px';
-    });
-    
-    currentOffsetX = x;
-    currentOffsetY = y;
-  }
-}
-
-function handleContainerPointerUp(e) {
-  if (isPanning) {
-    isPanning = false;
-    const container = document.getElementById('node-container');
-    container.style.cursor = 'default';
-    container.releasePointerCapture(e.pointerId);
-  }
-}
-
-function resetDragState() {
-  isDragging = false;
-  isMoving = false;
-  currentNode = null;
-  startX = 0;
-  startY = 0;
-}
-
-function showNodeContent(node) {
-    if (node.classList.contains('center')) {
-        const topicId = node.dataset.topicId;
-        toggleTopicVisibility(topicId);
-        return;
+function minimizeAllNodesExcept(exceptNode) {
+  document.querySelectorAll('.node:not(.center)').forEach(node => {
+    if (node !== exceptNode) {
+      node.classList.remove('maximized');
+      node.classList.add('minimized');
     }
-    
-    const modal = document.getElementById('edit-modal');
-    const modalTitle = document.getElementById('modal-title');
-    const modalContent = document.getElementById('modal-content');
-    const nodeContainer = document.getElementById('node-container');
-    
-    activeNodeId = node.dataset.id;
-    modalTitle.textContent = node.dataset.title;
-    modalContent.value = node.dataset.content;
-    
-    nodeContainer.classList.add('modal-open');
-    modal.style.display = 'flex';
-}
-
-function toggleTopicVisibility(topicId) {
-    const allNodes = document.querySelectorAll('.node:not(.center)');
-    
-    allNodes.forEach(node => {
-        node.classList.remove('visible');
-    });
-    
-    if (activeTopicId === topicId) {
-        activeTopicId = null;
-        return;
-    }
-    
-    activeTopicId = topicId;
-    document.querySelectorAll(`.node[data-topic-id="${topicId}"]:not(.center)`).forEach((node, index) => {
-        setTimeout(() => {
-            node.classList.add('visible');
-        }, index * 100);
-    });
+  });
 }
 
 document.getElementById('node-container').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) {
+        // Show all center nodes
+        document.querySelectorAll('.node.center').forEach(node => {
+            node.style.opacity = '1';
+        });
+        
+        // Hide all child nodes and minimize them
         document.querySelectorAll('.node:not(.center)').forEach(node => {
             node.classList.remove('visible');
+            node.classList.remove('maximized');
+            node.classList.add('minimized');
         });
+        
         activeTopicId = null;
     }
 });
@@ -1480,10 +1555,6 @@ async function getAIResponse(prompt, context = '') {
         {
           title: "Example Response",
           content: "This is a simulated response since we're in demo mode. Here's what you asked about: " + prompt
-        },
-        {
-          title: "Code Example",
-          content: "function demo() {\n  console.log('Hello from demo!');\n}"
         }
       ]
     };
@@ -1663,11 +1734,11 @@ function arrangeChildren(centerNode, radius) {
   const container = document.getElementById('node-container');
   const children = Array.from(container.querySelectorAll(`.node[data-topic-id="${topicId}"]:not(.center)`));
   
-  const centerX = parseFloat(centerNode.style.left);
-  const centerY = parseFloat(centerNode.style.top);
+  const centerX = parseInt(centerNode.style.left);
+  const centerY = parseInt(centerNode.style.top);
   
   children.forEach((child, index) => {
-    const angle = (index / children.length) * 2 * Math.PI;
+    const angle = (2 * Math.PI * index) / children.length;
     const x = centerX + radius * Math.cos(angle);
     const y = centerY + radius * Math.sin(angle);
     
@@ -1676,111 +1747,196 @@ function arrangeChildren(centerNode, radius) {
   });
 }
 
-document.getElementById('user-input').addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    handleUserInput();
+function showGuide() {
+  document.getElementById('guide-modal').style.display = 'flex';
+}
+
+function hideGuide() {
+  document.getElementById('guide-modal').style.display = 'none';
+}
+
+function showDocs() {
+  document.getElementById('docs-modal').style.display = 'flex';
+}
+
+function hideDocs() {
+  document.getElementById('docs-modal').style.display = 'none';
+}
+
+function toggleNodeSize(node) {
+  if (!node) return;
+  
+  const topicId = node.dataset.topicId;
+  const isMinimized = node.classList.contains('minimized');
+  
+  // Hide all other child nodes of the same topic
+  const siblingNodes = document.querySelectorAll(`.node[data-topic-id="${topicId}"]:not(.center)`);
+  siblingNodes.forEach(sibling => {
+    if (sibling !== node) {
+      sibling.classList.remove('visible');
+    }
+  });
+  
+  if (isMinimized) {
+    node.classList.remove('minimized');
+    node.classList.add('maximized');
+    node.classList.add('visible');
+    
+    // Re-execute scripts if this is an interactive node
+    if (node.classList.contains('interactive-node')) {
+      const scripts = node.querySelectorAll('script');
+      scripts.forEach(oldScript => {
+        const newScript = document.createElement('script');
+        Array.from(oldScript.attributes).forEach(attr => {
+          newScript.setAttribute(attr.name, attr.value);
+        });
+        newScript.textContent = oldScript.textContent;
+        oldScript.parentNode.replaceChild(newScript, oldScript);
+      });
+    }
+  } else {
+    // If clicking an already maximized node, show all siblings again
+    siblingNodes.forEach(sibling => {
+      sibling.classList.add('visible');
+      sibling.classList.add('minimized');
+    });
+    node.classList.remove('maximized');
+    node.classList.add('minimized');
   }
-});
+}
 
-const container = document.getElementById('node-container');
-container.onpointerdown = handleContainerPointerDown;
-container.onpointermove = handleContainerPointerMove;
-container.onpointerup = handleContainerPointerUp;
-container.onpointercancel = handleContainerPointerUp;
+function showNodeContent(centerNode) {
+  if (!centerNode || !centerNode.classList.contains('center')) return;
+  
+  const topicId = centerNode.dataset.topicId;
+  
+  // Hide all nodes first
+  document.querySelectorAll('.node').forEach(node => {
+    if (node.classList.contains('center')) {
+      node.style.opacity = '1';
+    } else {
+      node.classList.remove('visible');
+    }
+  });
+  
+  // Show and arrange child nodes of the clicked center node
+  const childNodes = document.querySelectorAll(`.node[data-topic-id="${topicId}"]:not(.center)`);
+  childNodes.forEach(node => {
+    node.classList.add('visible');
+    node.classList.add('minimized'); // Ensure all nodes start minimized
+  });
+  
+  activeTopicId = topicId;
+  
+  // Arrange children in a circle around the center node
+  arrangeChildren(centerNode, 200);
+}
 
-// Replace existing zoom functions with these:
+function resetDragState() {
+  currentNode = null;
+  isDragging = false;
+  isMoving = false;
+  startX = 0;
+  startY = 0;
+  offsetX = 0;
+  offsetY = 0;
+  isPanning = false; // Add this line
+}
+
 function zoomIn() {
-  currentZoom = Math.min(currentZoom * 1.2, 3.0);
+  currentZoom = Math.min(currentZoom * 1.2, 2.0);
   applyZoom();
 }
 
 function zoomOut() {
-  currentZoom = Math.max(currentZoom * 0.8, 0.3);
+  currentZoom = Math.max(currentZoom * 0.8, 0.5);
   applyZoom();
 }
 
 function applyZoom() {
   const nodes = document.querySelectorAll('.node');
   nodes.forEach(node => {
-    // Only apply the scale transform, don't modify positions
     node.style.transform = `scale(${currentZoom})`;
   });
 }
 
-// Add drag and drop handling to the container if needed
-const nodeContainer = document.getElementById('node-container');
-
-nodeContainer.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-});
-
-nodeContainer.addEventListener('drop', (e) => {
-  e.preventDefault();
-  const topicId = e.dataTransfer.getData('text/plain');
-  if (!topicId) return;
+// Add panning event handlers to the node container
+function initializeCanvasPan() {
+  const container = document.getElementById('node-container');
   
-  const rect = nodeContainer.getBoundingClientRect();
-  const x = (e.clientX - rect.left) / currentZoom;
-  const y = (e.clientY - rect.top) / currentZoom;
-  
-  const centerNode = document.querySelector(`.node.center[data-topic-id="${topicId}"]`);
-  if (centerNode) {
-    const oldX = parseFloat(centerNode.style.left) || 0;
-    const oldY = parseFloat(centerNode.style.top) || 0;
-    const deltaX = x - oldX;
-    const deltaY = y - oldY;
+  container.addEventListener('pointerdown', startPanning);
+  container.addEventListener('pointermove', handlePanning);
+  container.addEventListener('pointerup', stopPanning);
+  container.addEventListener('pointerleave', stopPanning);
+}
+
+function startPanning(e) {
+  if (e.target.id === 'node-container') {
+    isPanning = true;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    e.target.style.cursor = 'grabbing';
     
-    centerNode.style.left = `${x}px`;
-    centerNode.style.top = `${y}px`;
-    
-    const childNodes = nodeContainer.querySelectorAll(`.node[data-topic-id="${topicId}"]:not(.center)`);
-    childNodes.forEach(node => {
-      const currentX = parseFloat(node.style.left) || 0;
-      const currentY = parseFloat(node.style.top) || 0;
-      node.style.left = `${currentX + deltaX}px`;
-      node.style.top = `${currentY + deltaY}px`;
+    // Remove transitions from all nodes at start of panning
+    document.querySelectorAll('.node').forEach(node => {
+      node.style.transition = 'none';
     });
   }
-});
-
-function showGuide() {
-  const modal = document.getElementById('guide-modal');
-  modal.style.display = 'flex';
-  document.getElementById('node-container').classList.add('modal-open');
 }
 
-function hideGuide() {
-  const modal = document.getElementById('guide-modal');
-  modal.style.display = 'none';
-  document.getElementById('node-container').classList.remove('modal-open');
+function handlePanning(e) {
+  if (!isPanning) return;
+  
+  const dx = e.clientX - panStartX;
+  const dy = e.clientY - panStartY;
+
+  // Move all nodes together without distinction between parent and child
+  document.querySelectorAll('.node').forEach(node => {
+    const left = parseFloat(node.style.left) || 0;
+    const top = parseFloat(node.style.top) || 0;
+    
+    node.style.transition = 'none'; // Remove transition during panning
+    node.style.left = `${left + dx}px`;
+    node.style.top = `${top + dy}px`;
+  });
+  
+  panStartX = e.clientX;
+  panStartY = e.clientY;
 }
 
-// Close guide when clicking outside
-document.getElementById('guide-modal').addEventListener('click', (e) => {
-  if (e.target === e.currentTarget) {
-    hideGuide();
+function stopPanning(e) {
+  if (isPanning) {
+    isPanning = false;
+    e.target.style.cursor = '';
+    
+    // Restore transitions for all nodes
+    document.querySelectorAll('.node').forEach(node => {
+      node.style.transition = ''; // Restore default transitions
+    });
+  }
+}
+
+function toggleTopicVisibility(topicId) {
+  const centerNode = document.querySelector(`.node.center[data-topic-id="${topicId}"]`);
+  if (!centerNode) return;
+  
+  // Toggle visibility using showNodeContent
+  showNodeContent(centerNode);
+}
+
+// Initialize panning
+initializeCanvasPan();
+
+// Initialize the first category
+addCategory('General');
+
+// Event listener for user input
+document.getElementById('user-input').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    handleUserInput();
   }
 });
 
-function showDocs() {
-  const modal = document.getElementById('docs-modal');
-  modal.style.display = 'flex';
-  document.getElementById('node-container').classList.add('modal-open');
-}
-
-function hideDocs() {
-  const modal = document.getElementById('docs-modal');
-  modal.style.display = 'none';
-  document.getElementById('node-container').classList.remove('modal-open');
-}
-
-// Close docs when clicking outside
-document.getElementById('docs-modal').addEventListener('click', (e) => {
-  if (e.target === e.currentTarget) {
-    hideDocs();
-  }
-});
 </script>
 </body>
 </html>
