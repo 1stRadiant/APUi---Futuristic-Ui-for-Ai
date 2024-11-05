@@ -7,7 +7,7 @@ This is an AI-powered interactive mind mapping tool that allows users to create,
 
 Demo: https://youtu.be/ebszsDeae6s?si=EQnX7F0oKdmh-yDA
 
-Try it here: https://websim.ai/c/OMBKJIIqINQrnxStp
+Try it here: https://websim.ai/c/1XA0OGcGGmEW8FTLY
 
 ## Key Features 
 Interactive node-based visualization
