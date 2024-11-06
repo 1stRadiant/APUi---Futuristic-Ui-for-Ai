@@ -9,6 +9,9 @@ Demo: https://youtu.be/ebszsDeae6s?si=EQnX7F0oKdmh-yDA
 
 Try it here: https://websim.ai/c/1XA0OGcGGmEW8FTLY
 
+Reddit:
+https://www.reddit.com/r/APUi/s/fJ7NeSrh3l
+
 ## Key Features 
 Interactive node-based visualization
 AI-powered content generation
